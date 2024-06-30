@@ -136,7 +136,7 @@ public class UploadController {
         }
 
     }
-    private boolean isVaildJavaFile(Path filePath) { //소스 파일 업로드
+    private boolean isVaildJavaFile(Path filePath) { //컴파일러를 통한 파일 유효성검사
 
     try {
         JavaCompiler compiler = ToolProvider.getSystemJavaCompiler();
