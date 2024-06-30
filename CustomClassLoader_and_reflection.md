@@ -195,5 +195,6 @@ public class hello {
 ```
 ![스크린샷 2024-07-01 000512](https://github.com/beginerer/java-spring/assets/96945728/40d651fa-c618-4e77-9725-f37004e97a88)
 ![스크린샷 2024-07-01 001901](https://github.com/beginerer/java-spring/assets/96945728/60b09905-3dbe-4ad9-bb0c-d40ecb5dfa75)
+![image](https://github.com/beginerer/java-spring/assets/96945728/3dc85005-5b4e-4858-b664-b4ae4998785b)
 
 위의 그림에서 보듯이 출력이 잘되는것을 확인할 수 있습니다.
