@@ -77,7 +77,7 @@ public class UploadController {
     String UPLOAD_DIR;
 
     @Autowired
-    CustomClassLoader classLoader; // 커스텀 클래스로더 인스턴스 생성
+    CustomClassLoader classLoader; 
 
     @ResponseBody
     @PostMapping(value = "/upload")
@@ -167,3 +167,33 @@ Upload컨트롤러는 클라이언트가 웹에서 자바 소스파일을 업로
 마지막으로 지금까지의 과정이 제대로 작동하였는지 확인해 보기 위하여 리플렉션을 사용하여 출력해보는 코드를 추가하였습니다.
 
 리플렉션으로는 public 접근지정자에만 접근할 수 있기 때문에 private을 접근자로하는 메서드나 필드에  접근하기 위해서는 field.setAccessible(true) 코드를 추가해 주어야합니다.
+
+## Hello.java(웹에서 업로드한 소스파일)
+```java
+public class hello {
+
+    private String privateString;
+    private int privateInt;
+
+    public String publicString;
+    public int publicInt;
+
+    public void print() {
+        System.out.println("privateString = " + privateString);
+        System.out.println("privateInt = " + privateInt);
+        System.out.println("publicString = " + publicString);
+        System.out.println("publicInt = " + publicInt);
+    }
+
+    public hello(String privateString, int privateInt, String publicString, int publicInt) {
+        this.privateString = privateString;
+        this.privateInt = privateInt;
+        this.publicString = publicString;
+        this.publicInt = publicInt;
+    }
+}
+```
+![스크린샷 2024-07-01 000512](https://github.com/beginerer/java-spring/assets/96945728/40d651fa-c618-4e77-9725-f37004e97a88)
+![스크린샷 2024-07-01 001901](https://github.com/beginerer/java-spring/assets/96945728/60b09905-3dbe-4ad9-bb0c-d40ecb5dfa75)
+
+위의 그림에서 보듯이 출력이 잘되는것을 확인할 수 있습니다.
