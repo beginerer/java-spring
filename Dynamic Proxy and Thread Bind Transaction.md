@@ -89,6 +89,35 @@ ThreadLoacl에 대한 공부가 아직 부족해서 나중에 더 자세히 알�
 
  만약 쓰레드에 커넥션이 바인딩되지 않는다면 매번 다른 커넥션을 얻을 것이므로 커넥션풀 사이즈인 10개 이상의 커넥션 객체를 얻을 수 없을 것입니다. </br>
  반대로 쓰레드에 커넥션이 바인딩 되어있다면 매번 같은 커넥션이 리턴될 것이므로 문제없이 작동할 것이라고 생각할 수 있습니다.
-![스크린샷 2024-07-21 160301](https://github.com/user-attachments/assets/8e875efa-8274-46ba-a641-169e0364dd6d)
+<img src="https://github.com/user-attachments/assets/8e875efa-8274-46ba-a641-169e0364dd6d" width="800" height="400"/>
 
- 
+ 위의 그림에서 보듯이 문제없이 실행이 된다는 것을 확인할 수 있습니다. 이로써 DataSourceUtils.getConnection()은 쓰레드에 바인딩된 커넥션을 반환한다는 것을 알 수 있습니다.
+
+그렇다면 표준 EE-Style에서는 어떤 결과가 나올까요?
+
+doc에 따르면 쓰레드에 바인딩된 커넥션을 반환하지 않기 때문에 쓰레드 풀 사이즈를 초과해서 커넨션 반환 함수를 실행할 수 없다는 것을 예상할 수 있습니다.
+```java
+@Test
+    void EEStyleDataSource() throws InterruptedException {
+        DataSourceTransactionManager transactionManager = new DataSourceTransactionManager(dataSource);
+
+
+        Thread thread = new Thread(new Runnable() {
+            @SneakyThrows
+            @Override
+            public void run() {
+                Connection con = dataSource.getConnection();
+                System.out.println(con.toString());
+                TransactionStatus status = transactionManager.getTransaction(new DefaultTransactionDefinition());
+                transactionInfo(status);
+
+            }
+        });
+        Thread.sleep(1000);
+        threadTest(thread);
+    }
+```
+![스크린샷 2024-07-21 160733](https://github.com/user-attachments/assets/9e0a0b99-027a-44f5-9fd7-1687766f511d)
+datasource.getConnection()함수를 호출할 때마다 다른 커넥션을 반환하기 때문에 커넥션풀 사이즈 이상의 함수를 실행할 수 없다는 것을 확인할 수 있습니다.
+
+로그 Connection is not avaible. (total = 10, active=10, idle=0, waiting=0)  보시면 커넥션풀에 사용가능한 커넥션이 없는데 datasource.getConnection()을 해서 오류가 난것을 확인할 수 있습니다.
