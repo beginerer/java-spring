@@ -95,7 +95,7 @@ ThreadLoacl에 대한 공부가 아직 부족해서 나중에 더 자세히 알�
 
 그렇다면 표준 EE-Style에서는 어떤 결과가 나올까요?
 
-doc에 근거하면 쓰레드에 바인딩된 커넥션을 반환하지 않기 때문에 쓰레드 풀 사이즈를 초과해서 커넥션 반환 함수(dataSource.getConnection())를 실행할 수 없다는 것을 예상할 수 있습니다.
+doc에 근거하면 쓰레드에 바인딩된 커넥션을 반환하지 않기 때문에 커넥션 풀 사이즈를 초과해서 커넥션 반환 함수(dataSource.getConnection())를 실행할 수 없다는 것을 예상할 수 있습니다.
 ```java
 @Test
     void EEStyleDataSource() throws InterruptedException {
