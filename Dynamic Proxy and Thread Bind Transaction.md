@@ -126,4 +126,117 @@ datasource.getConnection()함수를 호출할 때마다 다른 커넥션을 반�
 
 java에서는 proxy를 사용하여 표준 EE-Style코드를 리팩토링하지 않아도 쓰레드 바인딩 커넥션을 사용할 수 있게 해줍니다.
 
-헷갈렸던 부분은 쓰레드 바인딩된 커넥션을 반환하는 것이 아니고, 커넥션의 함수를 호출할 때마다 쓰레드에 바인딩된 커넥션을 생성후  Task를 수행 후 닫는 방식이라는 사실이었습니다.
+헷갈렸던 부분은 쓰레드 바인딩된 커넥션을 반환하는 것이 아니고, 커넥션의 함수를 호출할 때마다 쓰레드에 바인딩된 커넥션을 생성하고  Task를 수행 후 닫는 방식이라는 사실이었습니다.
+
+자세하게 알아보기 전에 잘 작동하는지  테스트 코드를 통해 확인해봅시다.
+```java
+    @Test
+    void dataSourceProxy() throws SQLException {
+
+        TransactionAwareDataSourceProxy dataSourceProxy = new TransactionAwareDataSourceProxy(dataSource);
+        DataSourceTransactionManager transactionManager = new DataSourceTransactionManager(dataSourceProxy);
+
+        long start = System.currentTimeMillis();
+        Thread thread = new Thread(new Runnable() {
+            @SneakyThrows
+            @Override
+            public void run() {
+                Connection con = dataSourceProxy.getConnection();
+                System.out.println(con.toString());
+                TransactionStatus status = transactionManager.getTransaction(new DefaultTransactionDefinition());
+                transactionInfo(status);
+            }
+        });
+        Thread.sleep(1000);
+        threadTest(thread);
+        long end = System.currentTimeMillis();
+        System.out.println("소요 시간 = " + (end-start));
+    }
+```
+<img src="https://github.com/user-attachments/assets/916a376c-f44f-4f66-9d67-4ff71fc437fb" width="800" height="400"/>
+
+위의 그림에서 보듯이 커넥션 프록시를 사용해서 쓰레드에 바인딩된 커넥션을 사용할 수 있게되었습니다. 
+
+주의할점은 프록시로 생성된 커넥션 객체가 쓰레드에 바인딩 된 것이아니고, 커낵션을 함수를 호출할때 dynamic proxy의 invoke메서드가 호출되면서 동적으로 쓰레드 바인딩된 커넥션을 만들고 Clinet의 Task를 수행 후 커넥션을 닫습니다.
+
+## TransactionAwareDataSourceProxy
+```java
+@Override
+	public Connection getConnection() throws SQLException {
+		DataSource ds = obtainTargetDataSource();
+		Connection con = getTransactionAwareConnectionProxy(ds);
+		if (!this.lazyTransactionalConnections && shouldObtainFixedConnection(ds)) {
+			((ConnectionProxy) con).getTargetConnection();
+		}
+		return con;
+	}
+protected Connection getTransactionAwareConnectionProxy(DataSource targetDataSource) {
+		return (Connection) Proxy.newProxyInstance(
+				ConnectionProxy.class.getClassLoader(),
+				new Class<?>[] {ConnectionProxy.class},
+				new TransactionAwareInvocationHandler(targetDataSource));
+	}
+```
+```java
+@Override
+		public Object invoke(Object proxy, Method method, Object[] args) throws Throwable {
+			// Invocation on ConnectionProxy interface coming in...
+
+			...
+			
+			if (this.target == null) {
+				if (method.getName().equals("getWarnings") || method.getName().equals("clearWarnings")) {
+					// Avoid creation of target Connection on pre-close cleanup (e.g. Hibernate Session)
+					return null;
+				}
+				if (this.closed) {
+					throw new SQLException("Connection handle already closed");
+				}
+				if (shouldObtainFixedConnection(this.targetDataSource)) {
+					this.target = DataSourceUtils.doGetConnection(this.targetDataSource);
+				}
+			}
+			Connection actualTarget = this.target;
+			if (actualTarget == null) {
+				actualTarget = DataSourceUtils.doGetConnection(this.targetDataSource);
+			}
+
+			if (method.getName().equals("getTargetConnection")) {
+				// Handle getTargetConnection method: return underlying Connection.
+				return actualTarget;
+			}
+
+			// Invoke method on target Connection.
+			try {
+				Object retVal = method.invoke(actualTarget, args);
+
+				// If return value is a Statement, apply transaction timeout.
+				// Applies to createStatement, prepareStatement, prepareCall.
+				if (retVal instanceof Statement statement) {
+					DataSourceUtils.applyTransactionTimeout(statement, this.targetDataSource);
+				}
+
+				return retVal;
+			}
+			catch (InvocationTargetException ex) {
+				throw ex.getTargetException();
+			}
+			finally {
+				if (actualTarget != this.target) {
+					DataSourceUtils.doReleaseConnection(actualTarget, this.targetDataSource);
+				}
+			}
+		}
+	}
+```
+프록시의 invoke 메서드를 보시면 DataSourceUtils.doGetConnection(this.targetDataSource)를 통해 쓰레드 바인드된 커넥션을 얻고, Task를 수행후 finally를 통해 DataSourceUtils.doReleaseConnection()으로 커넥션을 닫습니다.
+
+마지막으로 dynamicProxy는 리플렉션을 사용하기때문에 성능 오버헤드가 발생한다는것을 예상할 수 있습니다. 
+
+이를 테스트 해보았는데요 커넥션 프록시를 사용할 경우 위의 그림에서 보듯이 소요시간은 102039였고,
+![스크린샷 2024-07-21 191211](https://github.com/user-attachments/assets/d71ce9d8-bcc2-4cfe-ad31-b08af39b7170)
+프록시를 사용하지 않고 DataSourceUtils.getConnection()을 사용할 경우 소요시간은 101287걸리는 것을 확인 할 수 있었습니다.
+
+약 1%차이로 생각보다 큰 차이는 아닌 것 같지만 프록시를 사용했을때 소요시간이 더 걸린다는 것을 확인할 수 있었습니다.
+
+여기서는 코드 리팩토링을 줄이기 위해 proxy패턴이 사용되었는데요 소스코드를 분석해보면서 dynamic proxy패턴에 대해 공부해 보는 계기가 되었습니다. dynamic proxy는 리플렉션이 사용되기때문에 성능 오버헤드가 필연적으로 발생하므로 무분별하게 사용하지 않고 꼭 필요한 곳에 사용하는 것이 중요할 것같습니다.
