@@ -121,3 +121,9 @@ doc에 따르면 쓰레드에 바인딩된 커넥션을 반환하지 않기 때�
 datasource.getConnection()함수를 호출할 때마다 다른 커넥션을 반환하기 때문에 커넥션풀 사이즈 이상의 함수를 실행할 수 없다는 것을 확인할 수 있습니다.
 
 로그 Connection is not avaible. (total = 10, active=10, idle=0, waiting=0)  보시면 커넥션풀에 사용가능한 커넥션이 없는데 datasource.getConnection()을 해서 오류가 난것을 확인할 수 있습니다.
+
+## Dynamic Proxy
+
+java에서는 proxy를 사용하여 표준 EE-Style코드를 리팩토링하지 않아도 쓰레드 바인딩 커넥션을 사용할 수 있게 해줍니다.
+
+헷갈렸던 부분은 쓰레드 바인딩된 커넥션을 반환하는 것이 아니고, 커넥션의 함수를 호출할 때마다 쓰레드에 바인딩된 커넥션을 생성후  Task를 수행 후 닫는 방식이라는 사실이었습니다.
