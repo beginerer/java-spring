@@ -235,8 +235,9 @@ protected Connection getTransactionAwareConnectionProxy(DataSource targetDataSou
 
 이를 테스트 해보았는데요 커넥션 프록시를 사용할 경우 위의 그림에서 보듯이 소요시간은 102039였고,
 ![스크린샷 2024-07-21 191211](https://github.com/user-attachments/assets/d71ce9d8-bcc2-4cfe-ad31-b08af39b7170)
+
 프록시를 사용하지 않고 DataSourceUtils.getConnection()을 사용할 경우 소요시간은 101287걸리는 것을 확인 할 수 있었습니다.
 
 약 1%차이로 생각보다 큰 차이는 아닌 것 같지만 프록시를 사용했을때 소요시간이 더 걸린다는 것을 확인할 수 있었습니다.
 
-여기서는 코드 리팩토링을 줄이기 위해 proxy패턴이 사용되었는데요 소스코드를 분석해보면서 dynamic proxy패턴에 대해 공부해 보는 계기가 되었습니다. dynamic proxy는 리플렉션이 사용되기때문에 성능 오버헤드가 필연적으로 발생하므로 무분별하게 사용하지 않고 꼭 필요한 곳에 사용하는 것이 중요할 것같습니다.
+여기서는 코드 리팩토링을 줄이기 위해 proxy패턴이 사용되었는데요 소스코드를 분석해보면서 dynamic proxy패턴에 대해 공부해 보는 계기가 되었습니다. dynamic proxy는 리플렉션이 사용되기때문에 성능 오버헤드가 필연적으로 발생하므로 무분별하게 사용하지 않고 꼭 필요한 곳에 사용하는 것이 중요합니다.
